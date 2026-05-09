@@ -13,7 +13,6 @@
             --stroke: rgba(255, 255, 255, 0.1);
             --accent-colour: #ff8c00; /* Will be overwritten by JS */
             --text: #ffffff;
-            --brand-gradient: linear-gradient(90deg, #333333 0%, var(--accent-colour) 100%);
         }
 
         body, html { 
@@ -31,9 +30,11 @@
         }
 
         h1 { 
-            margin: 0; font-weight: 900; font-size: 18px; 
-            background: var(--brand-gradient);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin: 0; 
+            font-weight: 300; /* Slimmer, more modern weight */
+            font-size: 18px; 
+            letter-spacing: 3px; /* Added spacing for a cleaner look */
+            color: var(--accent-colour); /* Solid colour instead of gradient */
             text-transform: uppercase;
         }
 
@@ -256,7 +257,7 @@
         function drawWalk(walk) {
             if (walk.length < 2) return;
             L.polyline(walk.map(p => [p.lat, p.lng]), { 
-                color: dynamicColour, // Uses the dynamic colour for the map line
+                color: dynamicColour, 
                 weight: 4, 
                 opacity: 0.8, 
                 lineCap: 'round'
