@@ -46,16 +46,22 @@
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
 
-        .stat-row { display: flex; justify-content: space-between; margin-bottom: 15px; gap: 10px; }
-        .stat-card { flex: 1; background: var(--glass-strong); padding: 12px; border-radius: 14px; border: 1px solid var(--stroke); }
-        .stat-label { font-size: 9px; text-transform: uppercase; opacity: 0.5; font-weight: 700; margin-bottom: 2px; }
-        .stat-val { font-size: 18px; font-weight: 800; color: var(--accent-orange); }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+        .stat-card { flex: 1; background: var(--glass-strong); padding: 10px; border-radius: 14px; border: 1px solid var(--stroke); text-align: center; }
+        .stat-label { font-size: 8px; text-transform: uppercase; opacity: 0.5; font-weight: 700; margin-bottom: 2px; letter-spacing: 0.5px; }
+        .stat-val { font-size: 16px; font-weight: 800; color: var(--accent-orange); }
 
-        .date-row { display: flex; gap: 12px; margin-bottom: 15px; }
+        .date-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
         .date-input {
             flex: 1; background: var(--glass-strong); border: 1px solid var(--stroke);
-            color: white; padding: 12px; border-radius: 12px; font-size: 13px;
+            color: white; padding: 10px; border-radius: 12px; font-size: 12px;
             font-family: inherit; outline: none;
+        }
+
+        .unit-toggle {
+            background: var(--glass-strong); border: 1px solid var(--stroke);
+            color: white; padding: 8px 12px; border-radius: 12px; font-size: 10px;
+            font-weight: 800; cursor: pointer; text-transform: uppercase; min-width: 60px;
         }
 
         .range-wrapper { position: relative; width: 100%; height: 30px; margin-bottom: 10px; }
@@ -93,17 +99,22 @@
     <section id="controls">
         <div class="stat-row">
             <div class="stat-card">
-                <div class="stat-label">Total Steps</div>
+                <div class="stat-label">Active Time</div>
+                <div class="stat-val" id="timeCount">00:00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Steps</div>
                 <div class="stat-val" id="stepCount">0</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Energy</div>
-                <div class="stat-val" id="calCount">0 kcal</div>
+                <div class="stat-label">Distance</div>
+                <div class="stat-val" id="distCount">0.0 km</div>
             </div>
         </div>
 
         <div class="date-row">
             <input type="date" id="startDate" class="date-input" onchange="processAndRenderData()">
+            <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">KM</button>
             <input type="date" id="endDate" class="date-input" onchange="processAndRenderData()">
         </div>
 
@@ -119,52 +130,22 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const API_URL = 'https://tracker-nx8a.onrender.com/api/routes'; 
-        const WEIGHT_KG = 75; 
-
         const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([50.922, -1.396], 15);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
         let masterData = [];
         let polylineLayerGroup = L.layerGroup().addTo(map);
+        let currentUnit = 'KM';
 
         const today = new Date();
         const startOfHistory = new Date("2026-05-01");
         document.getElementById('startDate').valueAsDate = startOfHistory;
         document.getElementById('endDate').valueAsDate = today;
 
-        // --- SECURITY LOGIC ---
-        let sessionKey = sessionStorage.getItem('tracker_api_key');
-
-        async function fetchRoutes() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlKey = urlParams.get('key');
-
-            if (urlKey) {
-                sessionKey = urlKey;
-                sessionStorage.setItem('tracker_api_key', urlKey);
-            }
-
-            if (!sessionKey) {
-                sessionKey = prompt("Enter Dashboard Password:");
-                if (!sessionKey) return; 
-                sessionStorage.setItem('tracker_api_key', sessionKey);
-            }
-
-            try {
-                const response = await fetch(API_URL, {
-                    headers: { 'x-api-key': sessionKey }
-                });
-                
-                if (!response.ok) {
-                    sessionStorage.removeItem('tracker_api_key');
-                    if (!urlKey) alert("Incorrect Password.");
-                    sessionKey = null;
-                    return;
-                }
-
-                masterData = await response.json();
-                processAndRenderData();
-            } catch (e) { console.error(e); }
+        function toggleUnits() {
+            currentUnit = currentUnit === 'KM' ? 'MI' : 'KM';
+            document.getElementById('unitToggle').innerText = currentUnit;
+            processAndRenderData();
         }
 
         function syncFromSlider() {
@@ -178,6 +159,40 @@
             processAndRenderData();
         }
 
+        async function fetchRoutes() {
+            let sessionKey = sessionStorage.getItem('tracker_api_key');
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlKey = urlParams.get('key');
+
+            if (urlKey) { sessionKey = urlKey; sessionStorage.setItem('tracker_api_key', urlKey); }
+            if (!sessionKey) {
+                sessionKey = prompt("Enter Dashboard Password:");
+                if (!sessionKey) return; 
+                sessionStorage.setItem('tracker_api_key', sessionKey);
+            }
+
+            try {
+                const response = await fetch(API_URL, { headers: { 'x-api-key': sessionKey } });
+                if (!response.ok) {
+                    sessionStorage.removeItem('tracker_api_key');
+                    if (!urlKey) alert("Incorrect Password.");
+                    return;
+                }
+                masterData = await response.json();
+                processAndRenderData();
+            } catch (e) { console.error(e); }
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
         function processAndRenderData() {
             if (masterData.length === 0) return;
             polylineLayerGroup.clearLayers();
@@ -186,33 +201,52 @@
             const eD = new Date(document.getElementById('endDate').value);
             eD.setHours(23, 59, 59);
 
-            let currentWalk = [];
             let totalSteps = 0;
-
-            masterData.forEach((point) => {
-                const pD = new Date(point.timestamp);
-                if (pD >= sD && pD <= eD) {
-                    if (currentWalk.length > 0) {
-                        const lastD = new Date(currentWalk[currentWalk.length - 1].timestamp);
-                        if ((pD - lastD) / 60000 > 20) {
-                            drawWalk(currentWalk);
-                            totalSteps += currentWalk[currentWalk.length-1].steps || 0;
-                            currentWalk = [];
-                        }
-                    }
-                    currentWalk.push(point);
-                }
+            let totalDistKm = 0;
+            let activePoints = masterData.filter(p => {
+                const pD = new Date(p.timestamp);
+                return pD >= sD && pD <= eD;
             });
-            if (currentWalk.length > 0) {
+
+            if (activePoints.length > 0) {
+                let currentWalk = [activePoints[0]];
+                
+                for (let i = 1; i < activePoints.length; i++) {
+                    const prev = activePoints[i-1];
+                    const curr = activePoints[i];
+                    const timeGap = (new Date(curr.timestamp) - new Date(prev.timestamp)) / 60000;
+
+                    if (timeGap > 20) {
+                        drawWalk(currentWalk);
+                        currentWalk = [curr];
+                    } else {
+                        currentWalk.push(curr);
+                        totalDistKm += calculateDistance(prev.lat, prev.lng, curr.lat, curr.lng);
+                    }
+                }
                 drawWalk(currentWalk);
-                totalSteps += currentWalk[currentWalk.length-1].steps || 0;
+
+                // Steps calculation (difference between start and end of range)
+                const startSteps = activePoints[0].steps || 0;
+                const endSteps = activePoints[activePoints.length - 1].steps || 0;
+                totalSteps = Math.max(0, endSteps - startSteps);
+
+                // Time calculation
+                const durationMs = new Date(activePoints[activePoints.length-1].timestamp) - new Date(activePoints[0].timestamp);
+                const hrs = Math.floor(durationMs / 3600000);
+                const mins = Math.floor((durationMs % 3600000) / 60000);
+                document.getElementById('timeCount').innerText = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+            } else {
+                document.getElementById('timeCount').innerText = "00:00";
             }
 
             document.getElementById('stepCount').innerText = totalSteps.toLocaleString();
-            document.getElementById('calCount').innerText = Math.round(totalSteps * 0.04 * (WEIGHT_KG / 70)) + " kcal";
+            const displayDist = currentUnit === 'KM' ? totalDistKm : totalDistKm * 0.621371;
+            document.getElementById('distCount').innerText = `${displayDist.toFixed(2)} ${currentUnit.toLowerCase()}`;
         }
 
         function drawWalk(walk) {
+            if (walk.length < 2) return;
             L.polyline(walk.map(p => [p.lat, p.lng]), { 
                 color: '#ff8c00', weight: 4, opacity: 0.8, lineCap: 'round'
             }).addTo(polylineLayerGroup);
@@ -221,11 +255,11 @@
         function animateHistory() {
             let val = 0;
             const int = setInterval(() => {
-                val += 10;
+                val += 5;
                 document.getElementById('toSlider').value = val;
                 syncFromSlider();
                 if (val >= 1000) clearInterval(int);
-            }, 50);
+            }, 30);
         }
 
         fetchRoutes();
