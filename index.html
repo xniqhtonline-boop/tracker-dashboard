@@ -127,7 +127,6 @@
         let masterData = [];
         let polylineLayerGroup = L.layerGroup().addTo(map);
 
-        // Date Initialisation
         const today = new Date();
         const startOfHistory = new Date("2026-05-01");
         document.getElementById('startDate').valueAsDate = startOfHistory;
@@ -202,7 +201,9 @@
             }, 50);
         }
 
+        // Fetch immediately on load, then automatically every 30 seconds
         fetchRoutes();
+        setInterval(fetchRoutes, 30000);
     </script>
 </body>
 </html>
