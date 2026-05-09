@@ -11,9 +11,9 @@
             --glass: rgba(18, 18, 20, 0.85);
             --glass-strong: rgba(255, 255, 255, 0.05);
             --stroke: rgba(255, 255, 255, 0.1);
-            --accent-orange: #ff8c00;
+            --accent-colour: #ff8c00; /* Will be overwritten by JS */
             --text: #ffffff;
-            --brand-gradient: linear-gradient(90deg, #ff00ff 0%, #ff8c00 100%);
+            --brand-gradient: linear-gradient(90deg, #333333 0%, var(--accent-colour) 100%);
         }
 
         body, html { 
@@ -49,7 +49,7 @@
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
         .stat-card { flex: 1; background: var(--glass-strong); padding: 10px; border-radius: 14px; border: 1px solid var(--stroke); text-align: center; }
         .stat-label { font-size: 8px; text-transform: uppercase; opacity: 0.5; font-weight: 700; margin-bottom: 2px; letter-spacing: 0.5px; }
-        .stat-val { font-size: 14px; font-weight: 800; color: var(--accent-orange); white-space: nowrap; }
+        .stat-val { font-size: 14px; font-weight: 800; color: var(--accent-colour); white-space: nowrap; }
 
         .date-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
         .date-input {
@@ -71,7 +71,7 @@
         }
         .dual-range::-webkit-slider-thumb {
             pointer-events: auto; appearance: none; width: 22px; height: 22px;
-            border-radius: 50%; background: #fff; border: 3px solid var(--accent-orange);
+            border-radius: 50%; background: #fff; border: 3px solid var(--accent-colour);
         }
         .slider-track {
             position: absolute; width: 100%; height: 4px; top: 13px;
@@ -79,7 +79,7 @@
         }
 
         .playback-btn {
-            width: 100%; padding: 14px; background: var(--brand-gradient);
+            width: 100%; padding: 14px; background: var(--accent-colour);
             border: none; border-radius: 14px; color: white; font-weight: 800;
             text-transform: uppercase; font-size: 13px; cursor: pointer;
         }
@@ -91,7 +91,7 @@
 
     <header>
         <h1>Steps Tracker</h1>
-        <div style="font-size: 10px; font-weight: bold; color: #4caf50;">● LIVE</div>
+        <div style="font-size: 10px; font-weight: bold; color: var(--accent-colour);">● LIVE</div>
     </header>
 
     <div id="map"></div>
@@ -136,6 +136,16 @@
         let masterData = [];
         let polylineLayerGroup = L.layerGroup().addTo(map);
         let currentUnit = 'KM';
+        
+        // --- DYNAMIC COLOUR EXTRACTION ---
+        const urlParams = new URLSearchParams(window.location.search);
+        let dynamicColour = urlParams.get('color');
+        if (dynamicColour) {
+            dynamicColour = '#' + dynamicColour; // Put the hash back on
+            document.documentElement.style.setProperty('--accent-colour', dynamicColour);
+        } else {
+            dynamicColour = '#ff8c00'; // Fallback
+        }
 
         const today = new Date();
         const startOfHistory = new Date("2026-05-01");
@@ -161,7 +171,6 @@
 
         async function fetchRoutes() {
             let sessionKey = sessionStorage.getItem('tracker_api_key');
-            const urlParams = new URLSearchParams(window.location.search);
             const urlKey = urlParams.get('key');
 
             if (urlKey) { sessionKey = urlKey; sessionStorage.setItem('tracker_api_key', urlKey); }
@@ -208,7 +217,6 @@
             });
 
             if (activePoints.length > 0) {
-                // Time calculation: 00h 00m 00s
                 const durationMs = new Date(activePoints[activePoints.length-1].timestamp) - new Date(activePoints[0].timestamp);
                 const hrs = Math.floor(durationMs / 3600000);
                 const mins = Math.floor((durationMs % 3600000) / 60000);
@@ -216,13 +224,11 @@
                 document.getElementById('timeCount').innerText = 
                     `${hrs.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
 
-                // Steps calculation: Diff between first and last point in visible range
                 const startSteps = activePoints[0].steps || 0;
                 const endSteps = activePoints[activePoints.length - 1].steps || 0;
                 const visibleSteps = Math.max(0, endSteps - startSteps);
                 document.getElementById('stepCount').innerText = visibleSteps.toLocaleString();
 
-                // Distance and Polyline
                 let currentWalk = [activePoints[0]];
                 for (let i = 1; i < activePoints.length; i++) {
                     const prev = activePoints[i-1];
@@ -243,7 +249,6 @@
                 document.getElementById('stepCount').innerText = "0";
             }
 
-            // Display Distance
             const displayDist = currentUnit === 'KM' ? totalDistKm : totalDistKm * 0.621371;
             document.getElementById('distCount').innerText = `${displayDist.toFixed(2)} ${currentUnit.toLowerCase()}`;
         }
@@ -251,7 +256,10 @@
         function drawWalk(walk) {
             if (walk.length < 2) return;
             L.polyline(walk.map(p => [p.lat, p.lng]), { 
-                color: '#ff8c00', weight: 4, opacity: 0.8, lineCap: 'round'
+                color: dynamicColour, // Uses the dynamic colour for the map line
+                weight: 4, 
+                opacity: 0.8, 
+                lineCap: 'round'
             }).addTo(polylineLayerGroup);
         }
 
