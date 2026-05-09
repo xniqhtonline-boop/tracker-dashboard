@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Steps | Tracker Dashboard</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,104 +10,97 @@
     <style>
         :root {
             --bg-black: #07070a;
-            --glass: rgba(255, 255, 255, 0.03);
-            --glass-strong: rgba(255, 255, 255, 0.08);
+            --glass: rgba(18, 18, 20, 0.8);
+            --glass-strong: rgba(255, 255, 255, 0.05);
             --stroke: rgba(255, 255, 255, 0.1);
             --accent-orange: #ff8c00;
             --text: #ffffff;
             --brand-gradient: linear-gradient(90deg, #ff00ff 0%, #ff8c00 100%);
         }
 
-        body { 
-            margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; 
-            background: var(--bg-black); color: var(--text); overflow: hidden;
+        body, html { 
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background: var(--bg-black); color: var(--text); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
         }
 
-        #map { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
+        #map { 
+            position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; 
+        }
 
-        #sidebar {
-            position: absolute;
-            top: 0; left: 0; height: 100vh; width: 380px; z-index: 1000;
-            background: var(--glass);
-            backdrop-filter: blur(35px); -webkit-backdrop-filter: blur(35px);
-            border-right: 1px solid var(--stroke);
-            padding: 50px 35px; box-sizing: border-box;
-            display: flex; flex-direction: column;
-            box-shadow: 15px 0 40px rgba(0,0,0,0.9);
+        /* Responsive Mobile Header */
+        header {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            z-index: 1000; display: flex; justify-content: space-between; align-items: center;
         }
 
         h1 { 
-            margin: 0 0 45px 0; font-weight: 800; font-size: 28px; letter-spacing: -1px;
+            margin: 0; font-weight: 900; font-size: 20px; letter-spacing: -0.5px;
             background: var(--brand-gradient);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
         }
 
-        /* --- STRENGTHENED DUAL SLIDER CSS --- */
-        .range-wrapper { 
-            position: relative; width: 100%; height: 24px; margin-bottom: 45px; 
-            display: flex; align-items: center; /* Forces vertical centering */
+        /* Glassmorphic Bottom Panel */
+        #controls {
+            position: absolute; bottom: 25px; left: 15px; right: 15px;
+            z-index: 1000; background: var(--glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--stroke); border-radius: 24px;
+            padding: 20px; box-sizing: border-box;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
-        
+
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; }
+        .stat-card { flex: 1; background: var(--glass-strong); padding: 12px; border-radius: 16px; border: 1px solid var(--stroke); }
+        .stat-label { font-size: 10px; text-transform: uppercase; opacity: 0.5; margin-bottom: 4px; font-weight: 700; }
+        .stat-val { font-size: 18px; font-weight: 800; color: var(--accent-orange); }
+
+        /* Custom Slider Styling */
+        .range-wrapper { position: relative; width: 100%; height: 30px; margin: 10px 0; }
         .dual-range {
             position: absolute; width: 100%; pointer-events: none;
-            appearance: none; height: 100%; background: none; outline: none; margin: 0;
+            appearance: none; height: 100%; background: none; outline: none; z-index: 2;
         }
-
-        /* High z-index on hover ensures the handle is ALWAYS grabbable */
-        .dual-range:hover { z-index: 10; }
-
         .dual-range::-webkit-slider-thumb {
-            pointer-events: auto; appearance: none; width: 22px; height: 22px;
-            border-radius: 50%; background: #fff; cursor: pointer;
-            border: 2px solid var(--accent-orange);
-            box-shadow: 0 0 15px rgba(255,140,0,0.4);
-            position: relative; z-index: 10;
+            pointer-events: auto; appearance: none; width: 24px; height: 24px;
+            border-radius: 50%; background: #fff; border: 3px solid var(--accent-orange);
         }
-
         .slider-track {
-            position: absolute; width: 100%; height: 6px;
-            background: var(--glass-strong); border-radius: 3px; 
-            z-index: 1; pointer-events: none;
+            position: absolute; width: 100%; height: 4px; top: 13px;
+            background: rgba(255,255,255,0.1); border-radius: 2px; z-index: 1;
         }
 
-        .date-inputs { display: flex; gap: 10px; margin-bottom: 12px; }
-        .parent-input {
-            background: var(--glass-strong); border: 1px solid var(--stroke);
-            color: white; padding: 10px; border-radius: 10px;
-            font-size: 13px; flex: 1; text-align: center;
+        .playback-btn {
+            width: 100%; padding: 14px; background: var(--brand-gradient);
+            border: none; border-radius: 14px; color: white; font-weight: 800;
+            text-transform: uppercase; font-size: 13px; margin-top: 10px;
         }
 
-        .playback-row { display: flex; gap: 10px; align-items: center; margin-bottom: 30px; }
-        .playback-input { 
-            width: 60px; background: var(--glass-strong); border: 1px solid var(--stroke); 
-            color: white; border-radius: 8px; padding: 8px; text-align: center;
-        }
-        
-        .play-btn {
-            flex: 1; padding: 12px; background: var(--brand-gradient);
-            border: none; border-radius: 10px; color: white; font-weight: 700;
-            cursor: pointer; text-transform: uppercase; font-size: 12px;
-        }
-
-        .stat-card {
-            background: var(--glass-strong); padding: 22px; border-radius: 18px;
-            margin-bottom: 15px; border: 1px solid var(--stroke);
-        }
-        .stat-label { font-size: 11px; text-transform: uppercase; opacity: 0.5; margin-bottom: 6px; }
-        .stat-val { font-size: 26px; font-weight: 700; color: var(--accent-orange); }
-
-        #legendContainer { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--stroke); }
-        .colour-key { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
+        /* Hide Scrollbar for clean UI */
+        ::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
 
-    <aside id="sidebar">
-        <h1>STEPS TRACKER</h1>
-        
-        <div class="date-inputs">
-            <input type="date" id="startDate" class="parent-input" onchange="syncFromInput()">
-            <input type="date" id="endDate" class="parent-input" onchange="syncFromInput()">
+    <header>
+        <h1>Steps Tracker</h1>
+        <div id="active-status" style="font-size: 10px; font-weight: bold; color: #4caf50;">● LIVE</div>
+    </header>
+
+    <div id="map"></div>
+
+    <section id="controls">
+        <div class="stat-row">
+            <div class="stat-card">
+                <div class="stat-label">Total Steps</div>
+                <div class="stat-val" id="stepCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Energy</div>
+                <div class="stat-val" id="calCount">0 kcal</div>
+            </div>
         </div>
 
         <div class="range-wrapper">
@@ -116,31 +109,13 @@
             <input type="range" id="toSlider" class="dual-range" min="0" max="1000" value="1000" oninput="syncFromSlider()">
         </div>
 
-        <div class="playback-row">
-            <input type="number" id="playDuration" class="playback-input" value="5" min="1">
-            <label style="font-size: 11px; opacity: 0.6;">SEC</label>
-            <button class="play-btn" id="playBtn" onclick="animateHistory()">Play Sequence</button>
+        <button class="playback-btn" onclick="animateHistory()">Play Sequence</button>
+
+        <div style="display:none;">
+            <input type="date" id="startDate">
+            <input type="date" id="endDate">
         </div>
-
-        <div class="stat-card">
-            <div class="stat-label">Steps Walked</div>
-            <div class="stat-val" id="stepCount">0</div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-label">Energy Burned</div>
-            <div class="stat-val" id="calCount">0 kcal</div>
-        </div>
-
-        <label style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 15px 0;">
-            <input type="checkbox" id="heatmapToggle" onchange="processAndRenderData()"> 
-            <span>Enable Heatmap View</span>
-        </label>
-
-        <div id="legendContainer"></div>
-    </aside>
-
-    <div id="map"></div>
+    </section>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
@@ -148,122 +123,89 @@
     <script>
         const API_URL = 'https://tracker-nx8a.onrender.com/api/routes'; 
         const WEIGHT_KG = 75; 
-        const pathColours = ['#ff00ff', '#ff8c00', '#46f0f0', '#3cb44b', '#911eb4', '#f032e6']; 
+        const pathColours = ['#ff00ff', '#ff8c00', '#46f0f0', '#3cb44b']; 
 
-        const map = L.map('map', { zoomControl: false }).setView([50.92, -1.39], 15);
+        const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([50.92, -1.39], 14);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        let masterData = []; 
+        let masterData = [];
         let polylineLayerGroup = L.layerGroup().addTo(map);
-        let currentHeatLayer = null;
-        let isAnimating = false;
 
         const today = new Date();
         const startOfHistory = new Date("2026-05-01");
-        document.getElementById('endDate').valueAsDate = today;
         document.getElementById('startDate').valueAsDate = startOfHistory;
+        document.getElementById('endDate').valueAsDate = today;
 
         function syncFromSlider() {
             let f = parseInt(document.getElementById('fromSlider').value);
             let t = parseInt(document.getElementById('toSlider').value);
-            
             if (f > t) { document.getElementById('fromSlider').value = t; f = t; }
-
+            
             const range = today - startOfHistory;
             document.getElementById('startDate').valueAsDate = new Date(startOfHistory.getTime() + (range * (f / 1000)));
             document.getElementById('endDate').valueAsDate = new Date(startOfHistory.getTime() + (range * (t / 1000)));
             processAndRenderData();
         }
 
-        function syncFromInput() {
-            const s = new Date(document.getElementById('startDate').value);
-            const e = new Date(document.getElementById('endDate').value);
-            const range = today - startOfHistory;
-            document.getElementById('fromSlider').value = ((s - startOfHistory) / range) * 1000;
-            document.getElementById('toSlider').value = ((e - startOfHistory) / range) * 1000;
-            processAndRenderData();
-        }
-
-        function animateHistory() {
-            if (isAnimating) return;
-            isAnimating = true;
-            const duration = parseFloat(document.getElementById('playDuration').value) * 1000;
-            const targetTo = 1000;
-            const startFrom = parseInt(document.getElementById('fromSlider').value);
-            let startTime = null;
-
-            function step(currentTime) {
-                if (!startTime) startTime = currentTime;
-                const progress = Math.min((currentTime - startTime) / duration, 1);
-                document.getElementById('toSlider').value = startFrom + (targetTo - startFrom) * progress;
-                syncFromSlider();
-                if (progress < 1) window.requestAnimationFrame(step);
-                else isAnimating = false;
-            }
-            window.requestAnimationFrame(step);
-        }
-
         async function fetchRoutes() {
             try {
                 const response = await fetch(API_URL);
                 masterData = await response.json();
-                processAndRenderData(); 
+                processAndRenderData();
             } catch (e) { console.error(e); }
         }
 
         function processAndRenderData() {
             if (masterData.length === 0) return;
             polylineLayerGroup.clearLayers();
-            if (currentHeatLayer) map.removeLayer(currentHeatLayer);
-            document.getElementById('legendContainer').innerHTML = '';
 
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
-            endDate.setHours(23, 59, 59);
+            const sD = new Date(document.getElementById('startDate').value);
+            const eD = new Date(document.getElementById('endDate').value);
+            eD.setHours(23, 59, 59);
 
-            let walks = [];
             let currentWalk = [];
-            let heatData = [];
+            let totalSteps = 0;
 
-            masterData.forEach(point => {
-                const pDate = new Date(point.timestamp);
-                if (pDate >= startDate && pDate <= endDate) {
+            masterData.forEach((point, i) => {
+                const pD = new Date(point.timestamp);
+                if (pD >= sD && pD <= eD) {
                     if (currentWalk.length > 0) {
-                        const lastDate = new Date(currentWalk[currentWalk.length - 1].timestamp);
-                        if ((pDate - lastDate) / 60000 > 30) {
-                            walks.push(currentWalk);
+                        const lastD = new Date(currentWalk[currentWalk.length - 1].timestamp);
+                        if ((pD - lastD) / 60000 > 30) {
+                            drawWalk(currentWalk);
+                            totalSteps += currentWalk[currentWalk.length-1].steps || 0;
                             currentWalk = [];
                         }
                     }
                     currentWalk.push(point);
-                    heatData.push([point.lat, point.lng, 0.7]); 
                 }
             });
-            if (currentWalk.length > 0) walks.push(currentWalk);
+            if (currentWalk.length > 0) {
+                drawWalk(currentWalk);
+                totalSteps += currentWalk[currentWalk.length-1].steps || 0;
+            }
 
-            let totalSteps = 0;
-            walks.forEach(w => { totalSteps += w[w.length-1].steps || 0; });
             document.getElementById('stepCount').innerText = totalSteps.toLocaleString();
             document.getElementById('calCount').innerText = Math.round(totalSteps * 0.04 * (WEIGHT_KG / 70)) + " kcal";
+        }
 
-            if (document.getElementById('heatmapToggle').checked) {
-                currentHeatLayer = L.heatLayer(heatData, { radius: 18, blur: 12, gradient: {0.4: '#ff00ff', 1: '#ff8c00'} }).addTo(map);
-            } else {
-                const dayColours = {};
-                let cIdx = 0;
-                let legendHTML = '<strong style="font-size:10px; opacity:0.6;">DAILY ACTIVITY:</strong><br>';
+        function drawWalk(walk) {
+            L.polyline(walk.map(p => [p.lat, p.lng]), { 
+                color: '#ff8c00', 
+                weight: 5, 
+                opacity: 0.8,
+                lineCap: 'round'
+            }).addTo(polylineLayerGroup);
+        }
 
-                walks.forEach(walk => {
-                    const dStr = new Date(walk[0].timestamp).toDateString();
-                    if (!dayColours[dStr]) {
-                        dayColours[dStr] = pathColours[cIdx % pathColours.length];
-                        legendHTML += `<div style="margin-top:8px; font-size:12px;"><span class="colour-key" style="background:${dayColours[dStr]}"></span> ${dStr}</div>`;
-                        cIdx++;
-                    }
-                    L.polyline(walk.map(p => [p.lat, p.lng]), { color: dayColours[dStr], weight: 6, opacity: 0.95 }).addTo(polylineLayerGroup);
-                });
-                document.getElementById('legendContainer').innerHTML = legendHTML;
-            }
+        function animateHistory() {
+            let val = 0;
+            const int = setInterval(() => {
+                val += 10;
+                document.getElementById('toSlider').value = val;
+                syncFromSlider();
+                if (val >= 1000) clearInterval(int);
+            }, 30);
         }
 
         fetchRoutes();
