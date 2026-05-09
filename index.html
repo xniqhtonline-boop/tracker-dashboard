@@ -49,7 +49,7 @@
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
         .stat-card { flex: 1; background: var(--glass-strong); padding: 10px; border-radius: 14px; border: 1px solid var(--stroke); text-align: center; }
         .stat-label { font-size: 8px; text-transform: uppercase; opacity: 0.5; font-weight: 700; margin-bottom: 2px; letter-spacing: 0.5px; }
-        .stat-val { font-size: 16px; font-weight: 800; color: var(--accent-orange); }
+        .stat-val { font-size: 14px; font-weight: 800; color: var(--accent-orange); white-space: nowrap; }
 
         .date-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
         .date-input {
@@ -100,7 +100,7 @@
         <div class="stat-row">
             <div class="stat-card">
                 <div class="stat-label">Active Time</div>
-                <div class="stat-val" id="timeCount">00:00</div>
+                <div class="stat-val" id="timeCount">00h 00m 00s</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Steps</div>
@@ -108,7 +108,7 @@
             </div>
             <div class="stat-card">
                 <div class="stat-label">Distance</div>
-                <div class="stat-val" id="distCount">0.0 km</div>
+                <div class="stat-val" id="distCount">0.00 km</div>
             </div>
         </div>
 
@@ -175,7 +175,6 @@
                 const response = await fetch(API_URL, { headers: { 'x-api-key': sessionKey } });
                 if (!response.ok) {
                     sessionStorage.removeItem('tracker_api_key');
-                    if (!urlKey) alert("Incorrect Password.");
                     return;
                 }
                 masterData = await response.json();
@@ -184,7 +183,7 @@
         }
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
+            const R = 6371; 
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -201,16 +200,30 @@
             const eD = new Date(document.getElementById('endDate').value);
             eD.setHours(23, 59, 59);
 
-            let totalSteps = 0;
             let totalDistKm = 0;
+            
             let activePoints = masterData.filter(p => {
                 const pD = new Date(p.timestamp);
                 return pD >= sD && pD <= eD;
             });
 
             if (activePoints.length > 0) {
+                // Time calculation: 00h 00m 00s
+                const durationMs = new Date(activePoints[activePoints.length-1].timestamp) - new Date(activePoints[0].timestamp);
+                const hrs = Math.floor(durationMs / 3600000);
+                const mins = Math.floor((durationMs % 3600000) / 60000);
+                const secs = Math.floor((durationMs % 60000) / 1000);
+                document.getElementById('timeCount').innerText = 
+                    `${hrs.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+
+                // Steps calculation: Diff between first and last point in visible range
+                const startSteps = activePoints[0].steps || 0;
+                const endSteps = activePoints[activePoints.length - 1].steps || 0;
+                const visibleSteps = Math.max(0, endSteps - startSteps);
+                document.getElementById('stepCount').innerText = visibleSteps.toLocaleString();
+
+                // Distance and Polyline
                 let currentWalk = [activePoints[0]];
-                
                 for (let i = 1; i < activePoints.length; i++) {
                     const prev = activePoints[i-1];
                     const curr = activePoints[i];
@@ -225,22 +238,12 @@
                     }
                 }
                 drawWalk(currentWalk);
-
-                // Steps calculation (difference between start and end of range)
-                const startSteps = activePoints[0].steps || 0;
-                const endSteps = activePoints[activePoints.length - 1].steps || 0;
-                totalSteps = Math.max(0, endSteps - startSteps);
-
-                // Time calculation
-                const durationMs = new Date(activePoints[activePoints.length-1].timestamp) - new Date(activePoints[0].timestamp);
-                const hrs = Math.floor(durationMs / 3600000);
-                const mins = Math.floor((durationMs % 3600000) / 60000);
-                document.getElementById('timeCount').innerText = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
             } else {
-                document.getElementById('timeCount').innerText = "00:00";
+                document.getElementById('timeCount').innerText = "00h 00m 00s";
+                document.getElementById('stepCount').innerText = "0";
             }
 
-            document.getElementById('stepCount').innerText = totalSteps.toLocaleString();
+            // Display Distance
             const displayDist = currentUnit === 'KM' ? totalDistKm : totalDistKm * 0.621371;
             document.getElementById('distCount').innerText = `${displayDist.toFixed(2)} ${currentUnit.toLowerCase()}`;
         }
