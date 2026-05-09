@@ -136,6 +136,14 @@
         let sessionKey = sessionStorage.getItem('tracker_api_key');
 
         async function fetchRoutes() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlKey = urlParams.get('key');
+
+            if (urlKey) {
+                sessionKey = urlKey;
+                sessionStorage.setItem('tracker_api_key', urlKey);
+            }
+
             if (!sessionKey) {
                 sessionKey = prompt("Enter Dashboard Password:");
                 if (!sessionKey) return; 
@@ -149,7 +157,7 @@
                 
                 if (!response.ok) {
                     sessionStorage.removeItem('tracker_api_key');
-                    alert("Incorrect Password.");
+                    if (!urlKey) alert("Incorrect Password.");
                     sessionKey = null;
                     return;
                 }
@@ -220,7 +228,6 @@
             }, 50);
         }
 
-        // Initial fetch and start the 30-second timer
         fetchRoutes();
         setInterval(fetchRoutes, 30000);
     </script>
