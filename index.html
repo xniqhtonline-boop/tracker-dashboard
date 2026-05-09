@@ -132,6 +132,33 @@
         document.getElementById('startDate').valueAsDate = startOfHistory;
         document.getElementById('endDate').valueAsDate = today;
 
+        // --- SECURITY LOGIC ---
+        let sessionKey = sessionStorage.getItem('tracker_api_key');
+
+        async function fetchRoutes() {
+            if (!sessionKey) {
+                sessionKey = prompt("Enter Dashboard Password:");
+                if (!sessionKey) return; 
+                sessionStorage.setItem('tracker_api_key', sessionKey);
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    headers: { 'x-api-key': sessionKey }
+                });
+                
+                if (!response.ok) {
+                    sessionStorage.removeItem('tracker_api_key');
+                    alert("Incorrect Password.");
+                    sessionKey = null;
+                    return;
+                }
+
+                masterData = await response.json();
+                processAndRenderData();
+            } catch (e) { console.error(e); }
+        }
+
         function syncFromSlider() {
             let f = parseInt(document.getElementById('fromSlider').value);
             let t = parseInt(document.getElementById('toSlider').value);
@@ -141,14 +168,6 @@
             document.getElementById('startDate').valueAsDate = new Date(startOfHistory.getTime() + (range * (f / 1000)));
             document.getElementById('endDate').valueAsDate = new Date(startOfHistory.getTime() + (range * (t / 1000)));
             processAndRenderData();
-        }
-
-        async function fetchRoutes() {
-            try {
-                const response = await fetch(API_URL);
-                masterData = await response.json();
-                processAndRenderData();
-            } catch (e) { console.error(e); }
         }
 
         function processAndRenderData() {
@@ -201,7 +220,7 @@
             }, 50);
         }
 
-        // Fetch immediately on load, then automatically every 30 seconds
+        // Initial fetch and start the 30-second timer
         fetchRoutes();
         setInterval(fetchRoutes, 30000);
     </script>
